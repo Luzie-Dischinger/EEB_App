@@ -6,7 +6,7 @@ class WeightWebSocket {
     this.maxReconnectAttempts = 5;
     this.reconnectInterval = 3000;
     this.listeners = new Map();
-    this.raspberryPiIP = '192.168.1.100'; // IP deines Raspberry Pi
+    this.raspberryPiIP = '192.168.0.168'; // IP deines Raspberry Pi 
     this.port = 8765;
   }
 
@@ -15,9 +15,9 @@ class WeightWebSocket {
       try {
         const wsUrl = `ws://${this.raspberryPiIP}:${this.port}`;
         console.log(`Verbinde zu WebSocket: ${wsUrl}`);
-        
+
         this.ws = new WebSocket(wsUrl);
-        
+
         this.ws.onopen = () => {
           console.log('WebSocket verbunden');
           this.isConnected = true;
@@ -25,7 +25,7 @@ class WeightWebSocket {
           this.emit('connected');
           resolve();
         };
-        
+
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
@@ -34,12 +34,12 @@ class WeightWebSocket {
             console.error('Fehler beim Parsen der WebSocket-Nachricht:', error);
           }
         };
-        
+
         this.ws.onclose = (event) => {
           console.log('WebSocket Verbindung geschlossen:', event.code, event.reason);
           this.isConnected = false;
           this.emit('disconnected');
-          
+
           // Automatische Wiederverbindung
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             setTimeout(() => {
@@ -49,13 +49,13 @@ class WeightWebSocket {
             }, this.reconnectInterval);
           }
         };
-        
+
         this.ws.onerror = (error) => {
           console.error('WebSocket Fehler:', error);
           this.emit('error', error);
           reject(error);
         };
-        
+
       } catch (error) {
         console.error('Fehler beim Erstellen der WebSocket-Verbindung:', error);
         reject(error);
@@ -77,23 +77,25 @@ class WeightWebSocket {
         console.log('Verbindungsbestätigung:', data.message);
         this.emit('connectionConfirmed', data);
         break;
-        
+
       case 'weight_data':
         this.emit('weightData', {
-          weight: data.weight,
+          handWeight: data.hand_weight,
+          leftFootWeight: data.left_foot_weight,
+          rightFootWeight: data.right_foot_weight,
           timestamp: data.timestamp
         });
         break;
-        
+
       case 'response':
         this.emit('commandResponse', data);
         break;
-        
+
       case 'error':
         console.error('Server Fehler:', data.message);
         this.emit('serverError', data);
         break;
-        
+
       default:
         console.log('Unbekannter Nachrichtentyp:', data);
     }
@@ -114,7 +116,7 @@ class WeightWebSocket {
 
       try {
         this.ws.send(JSON.stringify(message));
-        
+
         // Auf Antwort warten
         const responseHandler = (response) => {
           if (response.command === command) {
@@ -126,15 +128,15 @@ class WeightWebSocket {
             }
           }
         };
-        
+
         this.on('commandResponse', responseHandler);
-        
+
         // Timeout nach 5 Sekunden
         setTimeout(() => {
           this.off('commandResponse', responseHandler);
           reject(new Error('Timeout: Keine Antwort vom Server'));
         }, 5000);
-        
+
       } catch (error) {
         reject(error);
       }
